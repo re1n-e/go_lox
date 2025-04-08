@@ -5,20 +5,21 @@ const (
 )
 
 type Chunk struct {
-	count int
-	capacity int
-	code []uint8
+	Count    int    // Capitalized to export
+	Capacity int    // Capitalized to export
+	Code     []byte // Capitalized to export
 }
 
-func (chunk *Chunk) initChunk() {
-	chunk.count = 0
-	chunk.capacity = 0
-	chunk.code = []uint8{}
+func (chunk *Chunk) InitChunk() {
+	chunk.Count = 0
+	chunk.Capacity = 0
+	chunk.Code = []byte{}
 }
 
-
-
-
+func (chunk *Chunk) WriteChunk(b byte) {
+	chunk.Code = append(chunk.Code, b)
+	chunk.Count++
+}
 
 
 
