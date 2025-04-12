@@ -1,26 +1,35 @@
 package main
 
 const (
-	OP_RETURN = iota
+	OP_CONSTANT = iota
+	OP_RETURN
 )
 
+type Value float64
+
 type Chunk struct {
-	Count    int    // Capitalized to export
-	Capacity int    // Capitalized to export
-	Code     []byte // Capitalized to export
+	Count     int
+	Capacity  int
+	Code      []byte
+	Lines     []int
+	Constants []Value
 }
 
 func (chunk *Chunk) InitChunk() {
 	chunk.Count = 0
 	chunk.Capacity = 0
 	chunk.Code = []byte{}
+	chunk.Lines = []int{}
+	chunk.Constants = []Value{}
 }
 
-func (chunk *Chunk) WriteChunk(b byte) {
+func (chunk *Chunk) WriteChunk(b byte, line int) {
 	chunk.Code = append(chunk.Code, b)
+	chunk.Lines = append(chunk.Lines, line)
 	chunk.Count++
 }
 
-
-
-
+func (chunk *Chunk) AddConstant(value Value) int {
+	chunk.Constants = append(chunk.Constants, value)
+	return len(chunk.Constants) - 1
+}
