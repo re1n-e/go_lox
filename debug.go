@@ -11,7 +11,7 @@ func (chunk *Chunk) DisassembleChunk(name string) {
 
 func (chunk *Chunk) disassembleInstruction(offset int) int {
 	fmt.Printf("%04d ", offset)
-	if offset > 0 && chunk.Lines[offset] == chunk.Lines[offset - 1] {
+	if offset > 0 && chunk.Lines[offset] == chunk.Lines[offset-1] {
 		fmt.Printf("   | ")
 	} else {
 		fmt.Printf("%4d ", chunk.Lines[offset])
@@ -20,6 +20,16 @@ func (chunk *Chunk) disassembleInstruction(offset int) int {
 	switch instruction {
 	case OP_CONSTANT:
 		return chunk.constantInstruction("OP_CONSTANT", offset)
+	case OP_ADD:
+		return chunk.constantInstruction("OP_ADD", offset)
+	case OP_SUBTRACT:
+		return chunk.constantInstruction("OP_SUBTRACT", offset)
+	case OP_MULTIPLY:
+		return chunk.constantInstruction("OP_MULTIPLY", offset)
+	case OP_DIVIDE:
+		return chunk.constantInstruction("OP_DIVIDE", offset)
+	case OP_NEGATE:
+		return simpleInstruction("OP_NEGATE", offset)
 	case OP_RETURN:
 		return simpleInstruction("OP_RETURN", offset)
 	default:

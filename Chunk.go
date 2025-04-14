@@ -2,6 +2,11 @@ package main
 
 const (
 	OP_CONSTANT = iota
+	OP_ADD
+	OP_SUBTRACT
+	OP_MULTIPLY
+	OP_DIVIDE
+	OP_NEGATE
 	OP_RETURN
 )
 
@@ -11,6 +16,7 @@ type Chunk struct {
 	Count     int
 	Capacity  int
 	Code      []byte
+	P         int
 	Lines     []int
 	Constants []Value
 }
