@@ -1,32 +1,57 @@
 package main
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
 
 func main() {
 	var c Chunk
 	var v VM
 	c.InitChunk()
 	v.InitVM()
-	constant := c.AddConstant(1.2)
-	c.WriteChunk(OP_CONSTANT, 123)
-	c.WriteChunk(byte(constant), 123)
 
-	constant = c.AddConstant(3.4)
-	c.WriteChunk(OP_CONSTANT, 123)
-	c.WriteChunk(byte(constant), 123)
+	if len(os.Args) == 1 {
+		repl(&v)
+	} else if len(os.Args) == 2 {
+		runFile(&v, os.Args[1])
+	} else {
+		fmt.Fprintf(os.Stderr, "Usage: ./main [path]\n")
+		os.Exit(64)
+	}
+}
 
-	c.WriteChunk(OP_ADD, 123)
+func repl(v *VM) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println()
+			break
+		}
+		v.Interpret(line)
+	}
+}
 
-	constant = c.AddConstant(5.6)
-	c.WriteChunk(OP_CONSTANT, 123)
-	c.WriteChunk(byte(constant), 123)
+func runFile(v *VM, path string) {
+	source := readFile(path)
+	result := v.Interpret(source)
 
-	c.WriteChunk(OP_DIVIDE, 123)
-	c.WriteChunk(OP_NEGATE, 123)
-	c.WriteChunk(OP_RETURN, 123)
+	switch result {
+	case INTERPRET_COMPILE_ERROR:
+		os.Exit(65)
+	case INTERPRET_RUNTIME_ERROR:
+		os.Exit(70)
+	}
+}
 
-	fmt.Println("Chunk contents:", c.Code)
-	fmt.Println("Chunk count:", c.Count)
-	c.DisassembleChunk("test chunk")
-	v.Interpret(&c)
+func readFile(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not read file: %s\n", err)
+		os.Exit(74)
+	}
+	return string(data)
 }

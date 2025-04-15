@@ -28,13 +28,9 @@ func (vm *VM) resetStack() {
 	vm.Sp = 0
 }
 
-func (vm *VM) Interpret(chunk *Chunk) InterpretResult {
-	vm.Chunk = *chunk
-	vm.Stack = make([]Value, STACK_MAX)
-	vm.Instruction = vm.Chunk.Code
-	vm.Ip = 0
-	vm.Sp = 0
-	return vm.run()
+func (vm *VM) Interpret(source string) InterpretResult {
+	Compile(source)
+	return INTERPRET_OK
 }
 
 func (vm *VM) DEBUG_TRACE_EXECUTION() {
