@@ -29,8 +29,16 @@ func (vm *VM) resetStack() {
 }
 
 func (vm *VM) Interpret(source string) InterpretResult {
-	Compile(source)
-	return INTERPRET_OK
+	var chunk Chunk
+	chunk.InitChunk()
+
+	if !Compile(source, &chunk) {
+		return INTERPRET_COMPILE_ERROR
+	}
+
+	vm.Chunk = chunk
+	vm.Ip = vm.Chunk.Count
+	return vm.run()
 }
 
 func (vm *VM) DEBUG_TRACE_EXECUTION() {

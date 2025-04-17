@@ -64,7 +64,7 @@ type Scanner struct {
 
 func (scanner *Scanner) InitScanner(source string) {
 	scanner.Source = []rune(source)
-	scanner.Current = 1
+	scanner.Current = 0
 	scanner.Line = 1
 }
 

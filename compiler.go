@@ -1,26 +1,26 @@
 package main
 
-import "fmt"
+type Parser struct {
+	current  Token
+	previous Token
+}
 
-func Compile(source string) {
+func Compile(source string, chunk *Chunk) bool {
+	var parser Parser
 	var scanner Scanner
 	scanner.InitScanner(source)
-	line := -1
+	parser.advance(&scanner)
+	return true
+}
+
+func (parser *Parser) advance(scanner *Scanner) {
+	parser.previous = parser.current
 	for {
-		token := scanner.scanToken()
-		if token.line != line {
-			fmt.Printf("%4d ", token.line)
-			line = token.line
-		} else {
-			fmt.Printf("   | ")
-		}
-
-		// Properly slice and convert to string
-		lexeme := string(token.start)
-		fmt.Printf("%2d '%s'\n", token.typ_e, lexeme)
-
-		if token.typ_e == TOKEN_EOF {
+		parser.current = scanner.scanToken()
+		if parser.current.typ_e != TOKEN_ERROR {
 			break
 		}
 	}
 }
+
+func consume()
