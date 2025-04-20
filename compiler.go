@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-var scanner Scanner
+var scanner *Scanner
 var compilingChunk *Chunk
 
 type Parser struct {
@@ -32,13 +32,72 @@ const (
 
 type Precedence int
 
+type ParseFn func(*Parser)
+
 type ParseRule struct {
 	Prefix     ParseFn
 	Infix      ParseFn
 	Precedence Precedence
 }
 
-type ParseFn func()
+var rules []ParseRule
+
+func rules_init() {
+	rules = []ParseRule{
+		{
+			Prefix:     func(p *Parser) { p.grouping() },
+			Infix:      nil,
+			Precedence: PREC_NONE,
+		},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{
+			Prefix:     func(p *Parser) { p.unary() },
+			Infix:      func(p *Parser) { p.binary() },
+			Precedence: PREC_TERM,
+		},
+		{nil, func(p *Parser) { p.binary() }, PREC_TERM},
+		{nil, nil, PREC_NONE},
+		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},
+		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{
+			Prefix:     func(p *Parser) { p.number() },
+			Infix:      nil,
+			Precedence: PREC_NONE,
+		},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE},
+	}
+}
 
 func Compile(source string, chunk *Chunk) bool {
 	var parser Parser
@@ -49,6 +108,7 @@ func Compile(source string, chunk *Chunk) bool {
 	parser.panicMode = false
 
 	parser.advance()
+	rules_init()
 	parser.expression()
 
 	parser.consume(TOKEN_EOF, "Expect end of expression.")
@@ -129,11 +189,31 @@ func (parser *Parser) emitBytes(byte1, byte2 byte) {
 
 func (parser *Parser) endCompiler() {
 	parser.emitReturn()
+	if !parser.hadError {
+		compilingChunk.DisassembleChunk("code")
+	}
 }
 
 func (parser *Parser) binary() {
 	operatorType := parser.previous.typ_e
+	// Get the rule for the operator
+	rule := getRule(operatorType)
+	// Parse the right operand with a precedence one higher than the current operator
+	parser.parsePrecedence(Precedence(rule.Precedence + 1))
 
+	// Emit the appropriate instruction based on the operator type
+	switch operatorType {
+	case TOKEN_PLUS:
+		parser.emitByte(OP_ADD)
+	case TOKEN_MINUS:
+		parser.emitByte(OP_SUBTRACT)
+	case TOKEN_STAR:
+		parser.emitByte(OP_MULTIPLY)
+	case TOKEN_SLASH:
+		parser.emitByte(OP_DIVIDE)
+	default:
+		return // Unreachable
+	}
 }
 
 func (parser *Parser) grouping() {
@@ -163,8 +243,25 @@ func (parser *Parser) unary() {
 	}
 }
 
-func (parser *Parser) parsePrecedence(precdence Precedence) {
+func (parser *Parser) parsePrecedence(precedence Precedence) {
+	parser.advance()
+	prefixRule := getRule(parser.previous.typ_e).Prefix
+	if prefixRule == nil {
+		parser.error("Expect expression.\n")
+		return
+	}
 
+	prefixRule(parser)
+
+	for precedence <= getRule(parser.current.typ_e).Precedence {
+		parser.advance()
+		infixRule := getRule(parser.previous.typ_e).Infix
+		infixRule(parser)
+	}
+}
+
+func getRule(typ_e TokenType) *ParseRule {
+	return &rules[typ_e]
 }
 
 func (parser *Parser) expression() {

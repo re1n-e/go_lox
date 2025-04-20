@@ -10,6 +10,10 @@ func (chunk *Chunk) DisassembleChunk(name string) {
 }
 
 func (chunk *Chunk) disassembleInstruction(offset int) int {
+	if offset >= len(chunk.Lines) {
+		fmt.Printf("Error: no line info for offset %d\n", offset)
+		return offset + 1
+	}
 	fmt.Printf("%04d ", offset)
 	if offset > 0 && chunk.Lines[offset] == chunk.Lines[offset-1] {
 		fmt.Printf("   | ")
@@ -39,9 +43,18 @@ func (chunk *Chunk) disassembleInstruction(offset int) int {
 }
 
 func (chunk *Chunk) constantInstruction(name string, offset int) int {
+	if offset+1 >= len(chunk.Code) {
+		fmt.Printf("Error: %s instruction at offset %d missing operand\n", name, offset)
+		return offset + 1
+	}
+
 	constant := chunk.Code[offset+1]
 	fmt.Printf("%-16s %4d '", name, constant)
-	printValues(chunk.Constants[int(constant)])
+	if int(constant) >= len(chunk.Constants) {
+		fmt.Printf("Error: constant index %d out of bounds\n", constant)
+	} else {
+		printValues(chunk.Constants[int(constant)])
+	}
 	fmt.Println("'")
 	return offset + 2
 }
