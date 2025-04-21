@@ -101,7 +101,8 @@ func rules_init() {
 
 func Compile(source string, chunk *Chunk) bool {
 	var parser Parser
-
+	scanner = &Scanner{}
+	
 	scanner.InitScanner(source)
 	compilingChunk = chunk
 	parser.hadError = false

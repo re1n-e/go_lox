@@ -21,6 +21,7 @@ type VM struct {
 }
 
 func (vm *VM) InitVM() {
+	vm.Stack = make([]Value, STACK_MAX)
 	vm.resetStack()
 }
 
@@ -37,7 +38,8 @@ func (vm *VM) Interpret(source string) InterpretResult {
 	}
 
 	vm.Chunk = chunk
-	vm.Ip = vm.Chunk.Count
+	vm.Ip = 0
+	vm.Instruction = vm.Chunk.Code
 	return vm.run()
 }
 
