@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"unicode"
+)
 
 type InterpretResult int
 
@@ -29,6 +33,21 @@ func (vm *VM) resetStack() {
 	vm.Sp = 0
 }
 
+func (vm *VM) runtimeError(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, args...)
+	fmt.Fprintln(os.Stderr)
+
+	instruction := vm.Ip
+	var line int
+	if instruction >= 0 && instruction < len(vm.Chunk.Lines) {
+		line = vm.Chunk.Lines[instruction]
+	} else {
+		line = -1
+	}
+
+	fmt.Fprintf(os.Stderr, "[line %d] in script\n", line)
+	vm.resetStack()
+}
 func (vm *VM) Interpret(source string) InterpretResult {
 	var chunk Chunk
 	chunk.InitChunk()
@@ -72,6 +91,10 @@ func (vm *VM) run() InterpretResult {
 		case OP_NEGATE:
 			vm.push(-vm.pop())
 		case OP_RETURN:
+			if !unicode.IsDigit(rune(vm.peek(0))) {
+				vm.runtimeError("Operand must be a number.")
+				return INTERPRET_RUNTIME_ERROR
+			}
 			printValues(vm.pop())
 			fmt.Println()
 			return INTERPRET_OK
@@ -87,6 +110,10 @@ func (vm *VM) push(value Value) {
 func (vm *VM) pop() Value {
 	vm.Sp--
 	return vm.Stack[vm.Sp]
+}
+
+func (vm *VM) peek(distance int) Value {
+	return vm.Stack[vm.Sp-distance-1]
 }
 
 func (vm *VM) READ_BYTE() uint8 {
