@@ -45,64 +45,64 @@ var rules []ParseRule
 func rules_init() {
 	rules = []ParseRule{
 		{
-			Prefix:     func(p *Parser) { p.grouping() },
+			Prefix:     func(p *Parser) { p.grouping() }, //Left Paren
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE}, // Right Paren
+		{nil, nil, PREC_NONE}, // Left Brace
+		{nil, nil, PREC_NONE}, // Right Brace
+		{nil, nil, PREC_NONE}, // Comma
+		{nil, nil, PREC_NONE}, // Dot
 		{
 			Prefix:     func(p *Parser) { p.unary() },
-			Infix:      func(p *Parser) { p.binary() },
+			Infix:      func(p *Parser) { p.binary() }, // Minus
 			Precedence: PREC_TERM,
 		},
-		{nil, func(p *Parser) { p.binary() }, PREC_TERM},
-		{nil, nil, PREC_NONE},
-		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},
-		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
+		{nil, func(p *Parser) { p.binary() }, PREC_TERM},   // plus
+		{nil, nil, PREC_NONE},                              // Semicolon
+		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR}, // slash
+		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR}, // star
+		{nil, nil, PREC_NONE},                              // bang
+		{nil, nil, PREC_NONE},                              // bang equal
+		{nil, nil, PREC_NONE},                              // Equal
+		{nil, nil, PREC_NONE},                              // Equal Equal
+		{nil, nil, PREC_NONE},                              // Greater
+		{nil, nil, PREC_NONE},                              // Greater Equal
+		{nil, nil, PREC_NONE},                              // Less
+		{nil, nil, PREC_NONE},                              // Less Equal
+		{nil, nil, PREC_NONE},                              // Identifier
+		{nil, nil, PREC_NONE},                              // String
 		{
-			Prefix:     func(p *Parser) { p.number() },
+			Prefix:     func(p *Parser) { p.number() }, // Number
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
-		{nil, nil, PREC_NONE},
+		{nil, nil, PREC_NONE}, // And
+		{nil, nil, PREC_NONE}, // Class
+		{nil, nil, PREC_NONE}, // Else
+		{nil, nil, PREC_NONE}, // False
+		{nil, nil, PREC_NONE}, // For
+		{nil, nil, PREC_NONE}, // Fun
+		{nil, nil, PREC_NONE}, // If
+		{nil, nil, PREC_NONE}, // NIL
+		{nil, nil, PREC_NONE}, // OR
+		{nil, nil, PREC_NONE}, // Print
+		{nil, nil, PREC_NONE}, // Return
+		{nil, nil, PREC_NONE}, // Super
+		{nil, nil, PREC_NONE}, // This
+		{nil, nil, PREC_NONE}, // True
+		{nil, nil, PREC_NONE}, // Var
+		{nil, nil, PREC_NONE}, // While
+		{nil, nil, PREC_NONE}, // Error
+		{nil, nil, PREC_NONE}, // Eof
 	}
 }
 
 func Compile(source string, chunk *Chunk) bool {
 	var parser Parser
 	scanner = &Scanner{}
-	
+
 	scanner.InitScanner(source)
 	compilingChunk = chunk
 	parser.hadError = false
