@@ -1,20 +1,5 @@
 package main
 
-const (
-	OP_CONSTANT = iota
-	OP_NIL
-	OP_TRUE
-	OP_FALSE
-	OP_ADD
-	OP_SUBTRACT
-	OP_MULTIPLY
-	OP_DIVIDE
-	OP_NEGATE
-	OP_RETURN
-)
-
-type Value float64
-
 type Chunk struct {
 	Count     int
 	Capacity  int

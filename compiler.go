@@ -59,43 +59,43 @@ func rules_init() {
 			Infix:      func(p *Parser) { p.binary() }, // Minus
 			Precedence: PREC_TERM,
 		},
-		{nil, func(p *Parser) { p.binary() }, PREC_TERM},   // plus
-		{nil, nil, PREC_NONE},                              // Semicolon
-		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR}, // slash
-		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR}, // star
-		{nil, nil, PREC_NONE},                              // bang
-		{nil, nil, PREC_NONE},                              // bang equal
-		{nil, nil, PREC_NONE},                              // Equal
-		{nil, nil, PREC_NONE},                              // Equal Equal
-		{nil, nil, PREC_NONE},                              // Greater
-		{nil, nil, PREC_NONE},                              // Greater Equal
-		{nil, nil, PREC_NONE},                              // Less
-		{nil, nil, PREC_NONE},                              // Less Equal
-		{nil, nil, PREC_NONE},                              // Identifier
-		{nil, nil, PREC_NONE},                              // String
+		{nil, func(p *Parser) { p.binary() }, PREC_TERM},       // plus
+		{nil, nil, PREC_NONE},                                  // Semicolon
+		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},     // slash
+		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},     // star
+		{func(p *Parser) { p.unary() }, nil, PREC_NONE},        // bang
+		{nil, func(p *Parser) { p.binary() }, PREC_EQUALITY},   // bang equal
+		{nil, nil, PREC_NONE},                                  // Equal
+		{nil, func(p *Parser) { p.binary() }, PREC_EQUALITY},   // Equal Equal
+		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Greater
+		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Greater Equal
+		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Less
+		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Less Equal
+		{nil, nil, PREC_NONE},                                  // Identifier
+		{nil, nil, PREC_NONE},                                  // String
 		{
 			Prefix:     func(p *Parser) { p.number() }, // Number
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
-		{nil, nil, PREC_NONE}, // And
-		{nil, nil, PREC_NONE}, // Class
-		{nil, nil, PREC_NONE}, // Else
-		{nil, nil, PREC_NONE}, // False
-		{nil, nil, PREC_NONE}, // For
-		{nil, nil, PREC_NONE}, // Fun
-		{nil, nil, PREC_NONE}, // If
-		{nil, nil, PREC_NONE}, // NIL
-		{nil, nil, PREC_NONE}, // OR
-		{nil, nil, PREC_NONE}, // Print
-		{nil, nil, PREC_NONE}, // Return
-		{nil, nil, PREC_NONE}, // Super
-		{nil, nil, PREC_NONE}, // This
-		{nil, nil, PREC_NONE}, // True
-		{nil, nil, PREC_NONE}, // Var
-		{nil, nil, PREC_NONE}, // While
-		{nil, nil, PREC_NONE}, // Error
-		{nil, nil, PREC_NONE}, // Eof
+		{nil, nil, PREC_NONE},                             // And
+		{nil, nil, PREC_NONE},                             // Class
+		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // Else
+		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // False
+		{nil, nil, PREC_NONE},                             // For
+		{nil, nil, PREC_NONE},                             // Fun
+		{nil, nil, PREC_NONE},                             // If
+		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // NIL
+		{nil, nil, PREC_NONE},                             // OR
+		{nil, nil, PREC_NONE},                             // Print
+		{nil, nil, PREC_NONE},                             // Return
+		{nil, nil, PREC_NONE},                             // Super
+		{nil, nil, PREC_NONE},                             // This
+		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // True
+		{nil, nil, PREC_NONE},                             // Var
+		{nil, nil, PREC_NONE},                             // While
+		{nil, nil, PREC_NONE},                             // Error
+		{nil, nil, PREC_NONE},                             // Eof
 	}
 }
 
@@ -121,7 +121,7 @@ func (parser *Parser) advance() {
 	parser.previous = parser.current
 	for {
 		parser.current = scanner.scanToken()
-		if parser.current.typ_e != TOKEN_ERROR {
+		if parser.current.Type != TOKEN_ERROR {
 			break
 		}
 	}
@@ -141,9 +141,9 @@ func (parser *Parser) errorAt(token *Token, message string) {
 	}
 	parser.panicMode = true
 	fmt.Fprintf(os.Stderr, "[line %d] Error", token.line)
-	if token.typ_e == TOKEN_EOF {
+	if token.Type == TOKEN_EOF {
 		fmt.Fprintf(os.Stderr, " at end")
-	} else if token.typ_e == TOKEN_ERROR {
+	} else if token.Type == TOKEN_ERROR {
 		// Nothing
 	} else {
 		fmt.Fprintf(os.Stderr, " at '%s'", string(token.start))
@@ -153,8 +153,8 @@ func (parser *Parser) errorAt(token *Token, message string) {
 	parser.hadError = true
 }
 
-func (parser *Parser) consume(typ_e TokenType, message string) {
-	if parser.current.typ_e == typ_e {
+func (parser *Parser) consume(Type TokenType, message string) {
+	if parser.current.Type == Type {
 		parser.advance()
 		return
 	}
@@ -196,7 +196,7 @@ func (parser *Parser) endCompiler() {
 }
 
 func (parser *Parser) binary() {
-	operatorType := parser.previous.typ_e
+	operatorType := parser.previous.Type
 	// Get the rule for the operator
 	rule := getRule(operatorType)
 	// Parse the right operand with a precedence one higher than the current operator
@@ -204,6 +204,18 @@ func (parser *Parser) binary() {
 
 	// Emit the appropriate instruction based on the operator type
 	switch operatorType {
+	case TOKEN_BANG_EQUAL:
+		parser.emitBytes(OP_EQUAL, OP_NOT)
+	case TOKEN_EQUAL_EQUAL:
+		parser.emitByte(OP_EQUAL)
+	case TOKEN_GREATER:
+		parser.emitByte(OP_GREATER)
+	case TOKEN_GREATER_EQUAL:
+		parser.emitBytes(OP_LESS, OP_NOT)
+	case TOKEN_LESS:
+		parser.emitByte(OP_LESS)
+	case TOKEN_LESS_EQUAL:
+		parser.emitBytes(OP_GREATER, OP_NOT)
 	case TOKEN_PLUS:
 		parser.emitByte(OP_ADD)
 	case TOKEN_MINUS:
@@ -217,6 +229,19 @@ func (parser *Parser) binary() {
 	}
 }
 
+func (parser *Parser) literal() {
+	switch parser.previous.Type {
+	case TOKEN_FALSE:
+		parser.emitByte(OP_FALSE)
+	case TOKEN_NIL:
+		parser.emitByte(OP_NIL)
+	case TOKEN_TRUE:
+		parser.emitByte(OP_TRUE)
+	default:
+		return
+	}
+}
+
 func (parser *Parser) grouping() {
 	parser.expression()
 	parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression")
@@ -227,16 +252,18 @@ func (parser *Parser) number() {
 	if err != nil {
 		panic("number() cant't convert")
 	}
-	parser.emitConstant(Value(value))
+	parser.emitConstant(NumberVal(value))
 }
 
 func (parser *Parser) unary() {
-	operatorType := parser.previous.typ_e
+	operatorType := parser.previous.Type
 	// compile the operand
 	parser.parsePrecedence(PREC_UNARY)
 
 	// Emit the operator instruction
 	switch operatorType {
+	case TOKEN_BANG:
+		parser.emitByte(OP_NOT)
 	case TOKEN_MINUS:
 		parser.emitByte(OP_NEGATE)
 	default:
@@ -246,7 +273,7 @@ func (parser *Parser) unary() {
 
 func (parser *Parser) parsePrecedence(precedence Precedence) {
 	parser.advance()
-	prefixRule := getRule(parser.previous.typ_e).Prefix
+	prefixRule := getRule(parser.previous.Type).Prefix
 	if prefixRule == nil {
 		parser.error("Expect expression.\n")
 		return
@@ -254,15 +281,15 @@ func (parser *Parser) parsePrecedence(precedence Precedence) {
 
 	prefixRule(parser)
 
-	for precedence <= getRule(parser.current.typ_e).Precedence {
+	for precedence <= getRule(parser.current.Type).Precedence {
 		parser.advance()
-		infixRule := getRule(parser.previous.typ_e).Infix
+		infixRule := getRule(parser.previous.Type).Infix
 		infixRule(parser)
 	}
 }
 
-func getRule(typ_e TokenType) *ParseRule {
-	return &rules[typ_e]
+func getRule(Type TokenType) *ParseRule {
+	return &rules[Type]
 }
 
 func (parser *Parser) expression() {

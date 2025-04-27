@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"unicode"
 )
 
 type InterpretResult int
@@ -80,22 +79,59 @@ func (vm *VM) run() InterpretResult {
 		case OP_CONSTANT:
 			constant := vm.READ_CONSTANT()
 			vm.push(constant)
+		case OP_NIL:
+			vm.push(NilVal())
+		case OP_TRUE:
+			vm.push(BoolVal(true))
+		case OP_FALSE:
+			vm.push(BoolVal(false))
+		case OP_EQUAL:
+			b := vm.pop()
+			a := vm.pop()
+			vm.push(BoolVal(valuesEqual(a, b)))
 		case OP_ADD:
-			vm.BINARY_OP(func(a, b Value) Value { return a + b })
+			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
+				vm.runtimeError("Operands must be numbers.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			b := AsNumber(vm.pop())
+			a := AsNumber(vm.pop())
+			vm.push(NumberVal(a + b))
 		case OP_SUBTRACT:
-			vm.BINARY_OP(func(a, b Value) Value { return a - b })
+			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
+				vm.runtimeError("Operands must be numbers.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			b := AsNumber(vm.pop())
+			a := AsNumber(vm.pop())
+			vm.push(NumberVal(a - b))
 		case OP_MULTIPLY:
-			vm.BINARY_OP(func(a, b Value) Value { return a * b })
+			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
+				vm.runtimeError("Operands must be numbers.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			b := AsNumber(vm.pop())
+			a := AsNumber(vm.pop())
+			vm.push(NumberVal(a * b))
 		case OP_DIVIDE:
-			vm.BINARY_OP(func(a, b Value) Value { return a / b })
+			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
+				vm.runtimeError("Operands must be numbers.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			b := AsNumber(vm.pop())
+			a := AsNumber(vm.pop())
+			vm.push(NumberVal(a / b))
+		case OP_NOT:
+			vm.push(BoolVal(isFalsey(vm.pop())))
 		case OP_NEGATE:
-			vm.push(-vm.pop())
-		case OP_RETURN:
-			if !unicode.IsDigit(rune(vm.peek(0))) {
+			if !IsNumber(vm.peek(0)) {
 				vm.runtimeError("Operand must be a number.")
 				return INTERPRET_RUNTIME_ERROR
 			}
-			printValues(vm.pop())
+			vm.push(NumberVal(-AsNumber(vm.pop())))
+		case OP_RETURN:
+			// Print the value on top of the stack and return
+			PrintValue(vm.pop())
 			fmt.Println()
 			return INTERPRET_OK
 		}
@@ -116,6 +152,10 @@ func (vm *VM) peek(distance int) Value {
 	return vm.Stack[vm.Sp-distance-1]
 }
 
+func isFalsey(value Value) bool {
+	return IsNil(value) || (IsBool(value) && !AsBool(value))
+}
+
 func (vm *VM) READ_BYTE() uint8 {
 	res := vm.Instruction[vm.Ip]
 	vm.Ip++
@@ -126,8 +166,6 @@ func (vm *VM) READ_CONSTANT() Value {
 	return vm.Chunk.Constants[vm.READ_BYTE()]
 }
 
-func (vm *VM) BINARY_OP(op func(a, b Value) Value) {
-	b := vm.pop()
-	a := vm.pop()
-	vm.push(op(a, b))
+func (vm *VM) BINARY_OP(operation rune) InterpretResult {
+	return INTERPRET_OK
 }

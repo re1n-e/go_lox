@@ -69,7 +69,7 @@ func (scanner *Scanner) InitScanner(source string) {
 }
 
 type Token struct {
-	typ_e  TokenType
+	Type   TokenType
 	start  []rune
 	length int
 	line   int
@@ -173,9 +173,9 @@ func (scanner *Scanner) match(expected rune) bool {
 	return true
 }
 
-func (scanner *Scanner) makeToken(typ_e TokenType) Token {
+func (scanner *Scanner) makeToken(Type TokenType) Token {
 	var token Token
-	token.typ_e = typ_e
+	token.Type = Type
 	token.start = scanner.Source[scanner.Start:scanner.Current]
 	token.length = scanner.Current - scanner.Start
 	token.line = scanner.Line
@@ -184,7 +184,7 @@ func (scanner *Scanner) makeToken(typ_e TokenType) Token {
 
 func (scanner *Scanner) errorToken(message string) Token {
 	var token Token
-	token.typ_e = TOKEN_ERROR
+	token.Type = TOKEN_ERROR
 	token.start = []rune(message)
 	token.length = len(message)
 	token.line = scanner.Line
@@ -212,11 +212,11 @@ func (scanner *Scanner) skipWhitespace() {
 		}
 	}
 }
-func (scanner *Scanner) checkKeyword(start int, length int, rest string, typ_e TokenType) TokenType {
+func (scanner *Scanner) checkKeyword(start int, length int, rest string, Type TokenType) TokenType {
 	if scanner.Current-scanner.Start == start+length {
 		slice := string(scanner.Source[scanner.Start+start : scanner.Start+start+length])
 		if slice == rest {
-			return typ_e
+			return Type
 		}
 	}
 	return TOKEN_IDENTIFIER
