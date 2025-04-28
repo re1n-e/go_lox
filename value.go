@@ -24,6 +24,7 @@ const (
 	VAL_BOOL ValueType = iota
 	VAL_NIL
 	VAL_NUMBER
+	VAL_OBJ
 )
 
 // Value represents any value that can be stored in the VM
@@ -31,6 +32,7 @@ type Value struct {
 	Type ValueType
 	Bool bool
 	Num  float64
+	obj 
 }
 
 func BoolVal(b bool) Value {

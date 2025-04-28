@@ -89,6 +89,22 @@ func (vm *VM) run() InterpretResult {
 			b := vm.pop()
 			a := vm.pop()
 			vm.push(BoolVal(valuesEqual(a, b)))
+		case OP_GREATER:
+			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
+				vm.runtimeError("Operands must be numbers.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			b := AsNumber(vm.pop())
+			a := AsNumber(vm.pop())
+			vm.push(BoolVal(a > b))
+		case OP_LESS:
+			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
+				vm.runtimeError("Operands must be numbers.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			b := AsNumber(vm.pop())
+			a := AsNumber(vm.pop())
+			vm.push(BoolVal(a < b))
 		case OP_ADD:
 			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
 				vm.runtimeError("Operands must be numbers.")
@@ -164,8 +180,4 @@ func (vm *VM) READ_BYTE() uint8 {
 
 func (vm *VM) READ_CONSTANT() Value {
 	return vm.Chunk.Constants[vm.READ_BYTE()]
-}
-
-func (vm *VM) BINARY_OP(operation rune) InterpretResult {
-	return INTERPRET_OK
 }
