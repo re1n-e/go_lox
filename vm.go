@@ -21,11 +21,13 @@ type VM struct {
 	Ip          int
 	Stack       []Value
 	Sp          int
+	Globals     map[string]Value
 }
 
 func (vm *VM) InitVM() {
 	vm.Stack = make([]Value, STACK_MAX)
 	vm.resetStack()
+	vm.Globals = make(map[string]Value)
 }
 
 func (vm *VM) resetStack() {
@@ -85,6 +87,16 @@ func (vm *VM) run() InterpretResult {
 			vm.push(BoolVal(true))
 		case OP_FALSE:
 			vm.push(BoolVal(false))
+		case OP_POP:
+			vm.pop()
+		case OP_DEFINE_GLOBAL:
+			nameVal := vm.READ_CONSTANT()
+			if !IsString(nameVal) {
+				vm.runtimeError("Variable name must be a string.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			name := AsString(nameVal)
+			vm.Globals[name] = vm.pop()
 		case OP_EQUAL:
 			b := vm.pop()
 			a := vm.pop()
@@ -106,13 +118,18 @@ func (vm *VM) run() InterpretResult {
 			a := AsNumber(vm.pop())
 			vm.push(BoolVal(a < b))
 		case OP_ADD:
-			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
-				vm.runtimeError("Operands must be numbers.")
+			if IsString(vm.peek(0)) && IsString(vm.peek(1)) {
+				b := AsString(vm.pop())
+				a := AsString(vm.pop())
+				vm.push(StringVal(a + b))
+			} else if IsNumber(vm.peek(0)) && IsNumber(vm.peek(1)) {
+				b := AsNumber(vm.pop())
+				a := AsNumber(vm.pop())
+				vm.push(NumberVal(a + b))
+			} else {
+				vm.runtimeError("Operands must be two numbers or two strings.")
 				return INTERPRET_RUNTIME_ERROR
 			}
-			b := AsNumber(vm.pop())
-			a := AsNumber(vm.pop())
-			vm.push(NumberVal(a + b))
 		case OP_SUBTRACT:
 			if !IsNumber(vm.peek(0)) || !IsNumber(vm.peek(1)) {
 				vm.runtimeError("Operands must be numbers.")
@@ -145,10 +162,10 @@ func (vm *VM) run() InterpretResult {
 				return INTERPRET_RUNTIME_ERROR
 			}
 			vm.push(NumberVal(-AsNumber(vm.pop())))
+		case OP_PRINT:
+			printValues(vm.pop())
+			fmt.Printf("\n")
 		case OP_RETURN:
-			// Print the value on top of the stack and return
-			PrintValue(vm.pop())
-			fmt.Println()
 			return INTERPRET_OK
 		}
 	}

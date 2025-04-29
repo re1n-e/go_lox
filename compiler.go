@@ -72,7 +72,7 @@ func rules_init() {
 		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Less
 		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Less Equal
 		{nil, nil, PREC_NONE},                                  // Identifier
-		{nil, nil, PREC_NONE},                                  // String
+		{func(p *Parser) { p.string() }, nil, PREC_NONE},       // String
 		{
 			Prefix:     func(p *Parser) { p.number() }, // Number
 			Infix:      nil,
@@ -110,9 +110,11 @@ func Compile(source string, chunk *Chunk) bool {
 
 	parser.advance()
 	rules_init()
-	parser.expression()
 
-	parser.consume(TOKEN_EOF, "Expect end of expression.")
+	for !parser.match(TOKEN_EOF) {
+		parser.declaration()
+	}
+
 	parser.endCompiler()
 	return !parser.hadError
 }
@@ -162,6 +164,18 @@ func (parser *Parser) consume(Type TokenType, message string) {
 	parser.errorAtCurrent(message)
 }
 
+func (parser *Parser) check(Type TokenType) bool {
+	return parser.current.Type == Type
+}
+
+func (parser *Parser) match(Type TokenType) bool {
+	if !parser.check(Type) {
+		return false
+	}
+	parser.advance()
+	return true
+}
+
 func (parser *Parser) emitByte(Byte byte) {
 	compilingChunk.WriteChunk(Byte, parser.previous.line)
 }
@@ -197,12 +211,10 @@ func (parser *Parser) endCompiler() {
 
 func (parser *Parser) binary() {
 	operatorType := parser.previous.Type
-	// Get the rule for the operator
 	rule := getRule(operatorType)
-	// Parse the right operand with a precedence one higher than the current operator
+
 	parser.parsePrecedence(Precedence(rule.Precedence + 1))
 
-	// Emit the appropriate instruction based on the operator type
 	switch operatorType {
 	case TOKEN_BANG_EQUAL:
 		parser.emitBytes(OP_EQUAL, OP_NOT)
@@ -225,7 +237,7 @@ func (parser *Parser) binary() {
 	case TOKEN_SLASH:
 		parser.emitByte(OP_DIVIDE)
 	default:
-		return // Unreachable
+		return
 	}
 }
 
@@ -253,6 +265,11 @@ func (parser *Parser) number() {
 		panic("number() cant't convert")
 	}
 	parser.emitConstant(NumberVal(value))
+}
+
+func (parser *Parser) string() {
+	value := string(parser.previous.start[1 : len(parser.previous.start)-1])
+	parser.emitConstant(StringVal(value))
 }
 
 func (parser *Parser) unary() {
@@ -288,10 +305,95 @@ func (parser *Parser) parsePrecedence(precedence Precedence) {
 	}
 }
 
+func (parser *Parser) identifierConstant(name Token) byte {
+	identifier := string(name.start)
+
+	value := StringVal(identifier)
+
+	return parser.makeConstant(value)
+}
+
+func (parser *Parser) parseVariable(errorMessage string) byte {
+	parser.consume(TOKEN_IDENTIFIER, errorMessage)
+	return parser.identifierConstant(parser.previous)
+}
+
+func (parser *Parser) defineVariable(global byte) {
+	parser.emitBytes(OP_DEFINE_GLOBAL, global)
+}
+
 func getRule(Type TokenType) *ParseRule {
 	return &rules[Type]
 }
 
 func (parser *Parser) expression() {
 	parser.parsePrecedence(PREC_ASSIGNMENT)
+}
+
+func (parser *Parser) varDeclaration() {
+	global := parser.parseVariable("Expect variable name.")
+	if parser.match(TOKEN_EQUAL) {
+		parser.expression()
+	} else {
+		parser.emitByte(OP_NIL)
+	}
+
+	parser.consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.")
+
+	parser.defineVariable(global)
+}
+
+func (parser *Parser) expressionStatement() {
+	parser.expression()
+	parser.consume(TOKEN_SEMICOLON, "Expect ';' after expression.")
+	parser.emitByte(OP_POP)
+}
+
+func (parser *Parser) printStatement() {
+	parser.expression()
+	parser.consume(TOKEN_SEMICOLON, "Expect ';' after value.")
+	parser.emitByte(OP_PRINT)
+}
+
+func (parser *Parser) synchronize() {
+	parser.panicMode = false
+
+	for parser.current.Type != TOKEN_EOF {
+		if parser.previous.Type == TOKEN_SEMICOLON {
+			return
+		}
+		switch parser.current.Type {
+		case TOKEN_CLASS,
+			TOKEN_FUN,
+			TOKEN_VAR,
+			TOKEN_FOR,
+			TOKEN_IF,
+			TOKEN_WHILE,
+			TOKEN_PRINT,
+			TOKEN_RETURN:
+			return
+		default:
+
+		}
+	}
+
+	parser.advance()
+}
+
+func (parser *Parser) declaration() {
+	if parser.match(TOKEN_VAR) {
+		parser.varDeclaration()
+	} else {
+		parser.statement()
+	}
+
+	if parser.panicMode {
+		parser.synchronize()
+	}
+}
+
+func (parser *Parser) statement() {
+	if parser.match(TOKEN_PRINT) {
+		parser.printStatement()
+	}
 }
