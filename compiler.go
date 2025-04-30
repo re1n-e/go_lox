@@ -32,7 +32,7 @@ const (
 
 type Precedence int
 
-type ParseFn func(*Parser)
+type ParseFn func(*Parser, bool)
 
 type ParseRule struct {
 	Prefix     ParseFn
@@ -45,7 +45,7 @@ var rules []ParseRule
 func rules_init() {
 	rules = []ParseRule{
 		{
-			Prefix:     func(p *Parser) { p.grouping() }, //Left Paren
+			Prefix:     func(p *Parser, canAssign bool) { p.grouping(canAssign) }, //Left Paren
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
@@ -55,47 +55,47 @@ func rules_init() {
 		{nil, nil, PREC_NONE}, // Comma
 		{nil, nil, PREC_NONE}, // Dot
 		{
-			Prefix:     func(p *Parser) { p.unary() },
-			Infix:      func(p *Parser) { p.binary() }, // Minus
+			Prefix:     func(p *Parser, canAssign bool) { p.unary(canAssign) },
+			Infix:      func(p *Parser, canAssign bool) { p.binary(canAssign) }, // Minus
 			Precedence: PREC_TERM,
 		},
-		{nil, func(p *Parser) { p.binary() }, PREC_TERM},       // plus
-		{nil, nil, PREC_NONE},                                  // Semicolon
-		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},     // slash
-		{nil, func(p *Parser) { p.binary() }, PREC_FACTOR},     // star
-		{func(p *Parser) { p.unary() }, nil, PREC_NONE},        // bang
-		{nil, func(p *Parser) { p.binary() }, PREC_EQUALITY},   // bang equal
-		{nil, nil, PREC_NONE},                                  // Equal
-		{nil, func(p *Parser) { p.binary() }, PREC_EQUALITY},   // Equal Equal
-		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Greater
-		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Greater Equal
-		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Less
-		{nil, func(p *Parser) { p.binary() }, PREC_COMPARISON}, // Less Equal
-		{nil, nil, PREC_NONE},                                  // Identifier
-		{func(p *Parser) { p.string() }, nil, PREC_NONE},       // String
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_TERM}, // plus
+		{nil, nil, PREC_NONE}, // Semicolon
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_FACTOR},   // slash
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_FACTOR},   // star
+		{func(p *Parser, canAssign bool) { p.unary(canAssign) }, nil, PREC_NONE},      // bang
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_EQUALITY}, // bang equal
+		{nil, nil, PREC_NONE}, // Equal
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_EQUALITY},   // Equal Equal
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_COMPARISON}, // Greater
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_COMPARISON}, // Greater Equal
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_COMPARISON}, // Less
+		{nil, func(p *Parser, canAssign bool) { p.binary(canAssign) }, PREC_COMPARISON}, // Less Equal
+		{func(p *Parser, canAssign bool) { p.variable(canAssign) }, nil, PREC_NONE},     // Identifier
+		{func(p *Parser, canAssign bool) { p.string(canAssign) }, nil, PREC_NONE},       // String
 		{
-			Prefix:     func(p *Parser) { p.number() }, // Number
+			Prefix:     func(p *Parser, canAssign bool) { p.number(canAssign) }, // Number
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
-		{nil, nil, PREC_NONE},                             // And
-		{nil, nil, PREC_NONE},                             // Class
-		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // Else
-		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // False
-		{nil, nil, PREC_NONE},                             // For
-		{nil, nil, PREC_NONE},                             // Fun
-		{nil, nil, PREC_NONE},                             // If
-		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // NIL
-		{nil, nil, PREC_NONE},                             // OR
-		{nil, nil, PREC_NONE},                             // Print
-		{nil, nil, PREC_NONE},                             // Return
-		{nil, nil, PREC_NONE},                             // Super
-		{nil, nil, PREC_NONE},                             // This
-		{func(p *Parser) { p.literal() }, nil, PREC_NONE}, // True
-		{nil, nil, PREC_NONE},                             // Var
-		{nil, nil, PREC_NONE},                             // While
-		{nil, nil, PREC_NONE},                             // Error
-		{nil, nil, PREC_NONE},                             // Eof
+		{nil, nil, PREC_NONE}, // And
+		{nil, nil, PREC_NONE}, // Class
+		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // Else
+		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // False
+		{nil, nil, PREC_NONE}, // For
+		{nil, nil, PREC_NONE}, // Fun
+		{nil, nil, PREC_NONE}, // If
+		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // NIL
+		{nil, nil, PREC_NONE}, // OR
+		{nil, nil, PREC_NONE}, // Print
+		{nil, nil, PREC_NONE}, // Return
+		{nil, nil, PREC_NONE}, // Super
+		{nil, nil, PREC_NONE}, // This
+		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // True
+		{nil, nil, PREC_NONE}, // Var
+		{nil, nil, PREC_NONE}, // While
+		{nil, nil, PREC_NONE}, // Error
+		{nil, nil, PREC_NONE}, // Eof
 	}
 }
 
@@ -150,8 +150,8 @@ func (parser *Parser) errorAt(token *Token, message string) {
 	} else {
 		fmt.Fprintf(os.Stderr, " at '%s'", string(token.start))
 	}
-
 	fmt.Fprintf(os.Stderr, ": %s", message)
+	fmt.Println()
 	parser.hadError = true
 }
 
@@ -209,7 +209,7 @@ func (parser *Parser) endCompiler() {
 	}
 }
 
-func (parser *Parser) binary() {
+func (parser *Parser) binary(canAssign bool) {
 	operatorType := parser.previous.Type
 	rule := getRule(operatorType)
 
@@ -241,7 +241,7 @@ func (parser *Parser) binary() {
 	}
 }
 
-func (parser *Parser) literal() {
+func (parser *Parser) literal(canAssign bool) {
 	switch parser.previous.Type {
 	case TOKEN_FALSE:
 		parser.emitByte(OP_FALSE)
@@ -254,12 +254,12 @@ func (parser *Parser) literal() {
 	}
 }
 
-func (parser *Parser) grouping() {
+func (parser *Parser) grouping(canAssign bool) {
 	parser.expression()
 	parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression")
 }
 
-func (parser *Parser) number() {
+func (parser *Parser) number(canAssign bool) {
 	value, err := strconv.ParseFloat(string(parser.previous.start), 64)
 	if err != nil {
 		panic("number() cant't convert")
@@ -267,12 +267,27 @@ func (parser *Parser) number() {
 	parser.emitConstant(NumberVal(value))
 }
 
-func (parser *Parser) string() {
+func (parser *Parser) string(canAssign bool) {
 	value := string(parser.previous.start[1 : len(parser.previous.start)-1])
 	parser.emitConstant(StringVal(value))
 }
 
-func (parser *Parser) unary() {
+func (parser *Parser) namedVariable(name Token, canAssign bool) {
+	arg := parser.identifierConstant(name)
+
+	if canAssign && parser.match(TOKEN_EQUAL) {
+		parser.expression()
+		parser.emitBytes(OP_SET_GLOBAL, arg)
+	} else {
+
+		parser.emitBytes(OP_GET_GLOBAL, arg)
+	}
+}
+func (parser *Parser) variable(canAssign bool) {
+	parser.namedVariable(parser.previous, canAssign)
+}
+
+func (parser *Parser) unary(canAssign bool) {
 	operatorType := parser.previous.Type
 	// compile the operand
 	parser.parsePrecedence(PREC_UNARY)
@@ -296,12 +311,17 @@ func (parser *Parser) parsePrecedence(precedence Precedence) {
 		return
 	}
 
-	prefixRule(parser)
+	canAssign := precedence <= PREC_ASSIGNMENT
+	prefixRule(parser, canAssign)
 
 	for precedence <= getRule(parser.current.Type).Precedence {
 		parser.advance()
 		infixRule := getRule(parser.previous.Type).Infix
-		infixRule(parser)
+		infixRule(parser, canAssign)
+	}
+
+	if canAssign && parser.match(TOKEN_EQUAL) {
+		parser.error("Invalid assignment target.")
 	}
 }
 
@@ -395,5 +415,7 @@ func (parser *Parser) declaration() {
 func (parser *Parser) statement() {
 	if parser.match(TOKEN_PRINT) {
 		parser.printStatement()
+	} else {
+		parser.expressionStatement()
 	}
 }

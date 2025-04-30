@@ -89,6 +89,19 @@ func (vm *VM) run() InterpretResult {
 			vm.push(BoolVal(false))
 		case OP_POP:
 			vm.pop()
+		case OP_GET_GLOBAL:
+			nameVal := vm.READ_CONSTANT()
+			if !IsString(nameVal) {
+				vm.runtimeError("Variable name must be a string.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			name := AsString(nameVal)
+			value, ok := vm.Globals[name]
+			if !ok {
+				vm.runtimeError("Undefined variable '%s'", name)
+				return INTERPRET_RUNTIME_ERROR
+			}
+			vm.push(value)
 		case OP_DEFINE_GLOBAL:
 			nameVal := vm.READ_CONSTANT()
 			if !IsString(nameVal) {
@@ -97,6 +110,18 @@ func (vm *VM) run() InterpretResult {
 			}
 			name := AsString(nameVal)
 			vm.Globals[name] = vm.pop()
+		case OP_SET_GLOBAL:
+			nameVal := vm.READ_CONSTANT()
+			if !IsString(nameVal) {
+				vm.runtimeError("Variable name must be a string.")
+				return INTERPRET_RUNTIME_ERROR
+			}
+			name := AsString(nameVal)
+			if _, ok := vm.Globals[name]; !ok {
+				vm.runtimeError("Undefined variable '%s'.", name)
+				return INTERPRET_RUNTIME_ERROR
+			}
+			vm.Globals[name] = vm.peek(0)
 		case OP_EQUAL:
 			b := vm.pop()
 			a := vm.pop()
