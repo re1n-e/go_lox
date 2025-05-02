@@ -32,6 +32,10 @@ func (chunk *Chunk) disassembleInstruction(offset int) int {
 		return simpleInstruction("OP_FALSE", offset)
 	case OP_POP:
 		return simpleInstruction("OP_POP", offset)
+	case OP_GET_LOCAL:
+		return chunk.byteInstruction("OP_GET_LOCAL", offset)
+	case OP_SET_LOCAL:
+		return chunk.byteInstruction("OP_SET_LOCAL", offset)
 	case OP_GET_GLOBAL:
 		return chunk.constantInstruction("OP_GET_GLOBAL", offset)
 	case OP_DEFINE_GLOBAL:
@@ -86,6 +90,12 @@ func (chunk *Chunk) constantInstruction(name string, offset int) int {
 func simpleInstruction(name string, offset int) int {
 	fmt.Printf("%s\n", name)
 	return offset + 1
+}
+
+func (chunk *Chunk) byteInstruction(name string, offset int) int {
+	slot := chunk.Code[offset+1]
+	fmt.Printf("%-16s %4d\n", name, slot)
+	return offset + 2
 }
 
 func PrintValue(value Value) {

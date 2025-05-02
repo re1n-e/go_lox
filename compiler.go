@@ -6,9 +6,6 @@ import (
 	"strconv"
 )
 
-var scanner *Scanner
-var compilingChunk *Chunk
-
 type Parser struct {
 	current   Token
 	previous  Token
@@ -38,6 +35,28 @@ type ParseRule struct {
 	Prefix     ParseFn
 	Infix      ParseFn
 	Precedence Precedence
+}
+
+type Local struct {
+	name  Token
+	depth int
+}
+
+type Compiler struct {
+	locals     []Local
+	localCount int
+	scopeDepth int
+}
+
+var scanner *Scanner
+var compilingChunk *Chunk
+var current *Compiler
+
+func compiler_init() {
+	current = &Compiler{}
+	current.locals = make([]Local, 256)
+	current.localCount = 0
+	current.scopeDepth = 0
 }
 
 var rules []ParseRule
@@ -104,6 +123,7 @@ func Compile(source string, chunk *Chunk) bool {
 	scanner = &Scanner{}
 
 	scanner.InitScanner(source)
+	compiler_init()
 	compilingChunk = chunk
 	parser.hadError = false
 	parser.panicMode = false
@@ -205,11 +225,25 @@ func (parser *Parser) emitBytes(byte1, byte2 byte) {
 func (parser *Parser) endCompiler() {
 	parser.emitReturn()
 	if !parser.hadError {
-		compilingChunk.DisassembleChunk("code")
+		// compilingChunk.DisassembleChunk("code")
 	}
 }
 
-func (parser *Parser) binary(canAssign bool) {
+func beginScope() {
+	current.scopeDepth++
+}
+
+func (parser *Parser) endScope() {
+	for current.localCount > 0 &&
+		current.locals[current.localCount-1].depth > current.scopeDepth {
+		parser.emitByte(OP_POP)
+		current.localCount--
+	}
+
+	current.scopeDepth--
+}
+
+func (parser *Parser) binary(bool) {
 	operatorType := parser.previous.Type
 	rule := getRule(operatorType)
 
@@ -241,7 +275,7 @@ func (parser *Parser) binary(canAssign bool) {
 	}
 }
 
-func (parser *Parser) literal(canAssign bool) {
+func (parser *Parser) literal(bool) {
 	switch parser.previous.Type {
 	case TOKEN_FALSE:
 		parser.emitByte(OP_FALSE)
@@ -254,12 +288,12 @@ func (parser *Parser) literal(canAssign bool) {
 	}
 }
 
-func (parser *Parser) grouping(canAssign bool) {
+func (parser *Parser) grouping(bool) {
 	parser.expression()
 	parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression")
 }
 
-func (parser *Parser) number(canAssign bool) {
+func (parser *Parser) number(bool) {
 	value, err := strconv.ParseFloat(string(parser.previous.start), 64)
 	if err != nil {
 		panic("number() cant't convert")
@@ -267,27 +301,38 @@ func (parser *Parser) number(canAssign bool) {
 	parser.emitConstant(NumberVal(value))
 }
 
-func (parser *Parser) string(canAssign bool) {
+func (parser *Parser) string(bool) {
 	value := string(parser.previous.start[1 : len(parser.previous.start)-1])
 	parser.emitConstant(StringVal(value))
 }
 
 func (parser *Parser) namedVariable(name Token, canAssign bool) {
-	arg := parser.identifierConstant(name)
+	var getOp, setOp uint8
+	get_arg := parser.resolveLocal(current, name)
+	var arg byte
+	if get_arg != -1 {
+		arg = byte(get_arg)
+		getOp = OP_GET_LOCAL
+		setOp = OP_SET_LOCAL
+	} else {
+		arg = parser.identifierConstant(name)
+		getOp = OP_GET_GLOBAL
+		setOp = OP_SET_GLOBAL
+	}
 
 	if canAssign && parser.match(TOKEN_EQUAL) {
 		parser.expression()
-		parser.emitBytes(OP_SET_GLOBAL, arg)
+		parser.emitBytes(setOp, arg)
 	} else {
-
-		parser.emitBytes(OP_GET_GLOBAL, arg)
+		parser.emitBytes(getOp, arg)
 	}
 }
+
 func (parser *Parser) variable(canAssign bool) {
 	parser.namedVariable(parser.previous, canAssign)
 }
 
-func (parser *Parser) unary(canAssign bool) {
+func (parser *Parser) unary(bool) {
 	operatorType := parser.previous.Type
 	// compile the operand
 	parser.parsePrecedence(PREC_UNARY)
@@ -333,12 +378,82 @@ func (parser *Parser) identifierConstant(name Token) byte {
 	return parser.makeConstant(value)
 }
 
+func identifiersEqual(a, b *Token) bool {
+	if a.length != b.length {
+		return false
+	}
+	for i := 0; i < a.length; i++ {
+		if a.start[i] != b.start[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (parser *Parser) resolveLocal(compiler *Compiler, name Token) int {
+	for i := compiler.localCount - 1; i >= 0; i-- {
+		local := &compiler.locals[i]
+		if identifiersEqual(&name, &local.name) {
+			if local.depth == -1 {
+				parser.error("Can't read local variable in its own initializer.")
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+func (parser *Parser) declareVariable() {
+	if current.scopeDepth == 0 {
+		return
+	}
+
+	name := parser.previous
+	for i := current.localCount - 1; i >= 0; i-- {
+		local := &current.locals[i]
+		if local.depth != -1 && local.depth < current.scopeDepth {
+			break
+		}
+
+		if identifiersEqual(&name, &local.name) {
+			parser.error("Already a variable with this name in this scope.")
+		}
+	}
+	parser.addLocal(name)
+}
+
+func (parser *Parser) addLocal(name Token) {
+	if current.localCount == 256 {
+		parser.error("Too many local variable in function.")
+		return
+	}
+	local := &current.locals[current.localCount]
+	current.localCount++
+	local.name = name
+	local.depth = -1
+	local.depth = current.scopeDepth
+}
+
 func (parser *Parser) parseVariable(errorMessage string) byte {
 	parser.consume(TOKEN_IDENTIFIER, errorMessage)
+
+	parser.declareVariable()
+	if current.scopeDepth > 0 {
+		return 0
+	}
+
 	return parser.identifierConstant(parser.previous)
 }
 
+func markInitialized() {
+	current.locals[current.localCount-1].depth = current.scopeDepth
+}
+
 func (parser *Parser) defineVariable(global byte) {
+	if current.scopeDepth > 0 {
+		markInitialized()
+		return
+	}
 	parser.emitBytes(OP_DEFINE_GLOBAL, global)
 }
 
@@ -348,6 +463,14 @@ func getRule(Type TokenType) *ParseRule {
 
 func (parser *Parser) expression() {
 	parser.parsePrecedence(PREC_ASSIGNMENT)
+}
+
+func (parser *Parser) block() {
+	for !parser.check(TOKEN_RIGHT_BRACE) && !parser.check(TOKEN_EOF) {
+		parser.declaration()
+	}
+
+	parser.consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.")
 }
 
 func (parser *Parser) varDeclaration() {
@@ -415,6 +538,10 @@ func (parser *Parser) declaration() {
 func (parser *Parser) statement() {
 	if parser.match(TOKEN_PRINT) {
 		parser.printStatement()
+	} else if parser.match(TOKEN_LEFT_BRACE) {
+		beginScope()
+		parser.block()
+		parser.endScope()
 	} else {
 		parser.expressionStatement()
 	}

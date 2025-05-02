@@ -76,7 +76,8 @@ func (vm *VM) DEBUG_TRACE_EXECUTION() {
 
 func (vm *VM) run() InterpretResult {
 	for {
-		vm.DEBUG_TRACE_EXECUTION()
+		//vm.DEBUG_TRACE_EXECUTION()
+
 		switch vm.READ_BYTE() {
 		case OP_CONSTANT:
 			constant := vm.READ_CONSTANT()
@@ -89,6 +90,12 @@ func (vm *VM) run() InterpretResult {
 			vm.push(BoolVal(false))
 		case OP_POP:
 			vm.pop()
+		case OP_GET_LOCAL:
+			slot := vm.READ_BYTE()
+			vm.push(vm.Stack[slot])
+		case OP_SET_LOCAL:
+			slot := vm.READ_BYTE()
+			vm.Stack[slot] = vm.peek(0)
 		case OP_GET_GLOBAL:
 			nameVal := vm.READ_CONSTANT()
 			if !IsString(nameVal) {
