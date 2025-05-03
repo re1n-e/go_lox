@@ -21,6 +21,7 @@ const (
 	OP_NOT
 	OP_NEGATE
 	OP_PRINT
+	OP_JUMP_IF_FALSE
 	OP_RETURN
 )
 
@@ -37,11 +38,11 @@ const (
 
 // Value represents any value that can be stored in the VM
 type Value struct {
-	Type ValueType
-	Bool bool
-	Num  float64
+	Type   ValueType
+	Bool   bool
+	Num    float64
 	String string
-	obj  Obj
+	obj    Obj
 }
 
 func OBJ_TYPE(value Value) ObjType {

@@ -200,6 +200,13 @@ func (parser *Parser) emitByte(Byte byte) {
 	compilingChunk.WriteChunk(Byte, parser.previous.line)
 }
 
+func (parser *Parser) emitJump(instruction byte) byte {
+	parser.emitByte(instruction)
+	parser.emitByte(0xff)
+	parser.emitByte(0xff)
+	return byte(compilingChunk.Count) - 2
+}
+
 func (parser *Parser) emitReturn() {
 	parser.emitByte(OP_RETURN)
 }
@@ -215,6 +222,17 @@ func (parser *Parser) makeConstant(value Value) byte {
 
 func (parser *Parser) emitConstant(value Value) {
 	parser.emitBytes(OP_CONSTANT, parser.makeConstant(value))
+}
+
+func (parser *Parser) patchJump(offset byte) {
+	jump := compilingChunk.Count - int(offset) - 2
+
+	if jump > 255 {
+		parser.error("Too much code to jump over")
+	}
+
+	compilingChunk.Code[offset] = byte((jump >> 8) & 0xff)
+	compilingChunk.Code[offset+1] = byte(jump & 0xff)
 }
 
 func (parser *Parser) emitBytes(byte1, byte2 byte) {
@@ -492,6 +510,17 @@ func (parser *Parser) expressionStatement() {
 	parser.emitByte(OP_POP)
 }
 
+func (parser *Parser) ifStatement() {
+	parser.consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.")
+	parser.expression()
+	parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.")
+
+	thenJump := parser.emitJump(OP_JUMP_IF_FALSE)
+	parser.statement()
+
+	parser.patchJump(thenJump)
+}
+
 func (parser *Parser) printStatement() {
 	parser.expression()
 	parser.consume(TOKEN_SEMICOLON, "Expect ';' after value.")
@@ -538,6 +567,8 @@ func (parser *Parser) declaration() {
 func (parser *Parser) statement() {
 	if parser.match(TOKEN_PRINT) {
 		parser.printStatement()
+	} else if parser.match(TOKEN_IF) {
+		parser.ifStatement()
 	} else if parser.match(TOKEN_LEFT_BRACE) {
 		beginScope()
 		parser.block()

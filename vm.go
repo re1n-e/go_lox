@@ -197,6 +197,11 @@ func (vm *VM) run() InterpretResult {
 		case OP_PRINT:
 			printValues(vm.pop())
 			fmt.Printf("\n")
+		case OP_JUMP_IF_FALSE:
+			offset := vm.READ_SHORT()
+			if isFalsey(vm.peek(0)) {
+				vm.Ip += int(offset)
+			}
 		case OP_RETURN:
 			return INTERPRET_OK
 		}
@@ -229,4 +234,9 @@ func (vm *VM) READ_BYTE() uint8 {
 
 func (vm *VM) READ_CONSTANT() Value {
 	return vm.Chunk.Constants[vm.READ_BYTE()]
+}
+
+func (vm *VM) READ_SHORT() uint16 {
+	vm.Ip += 2
+	return uint16(vm.Instruction[vm.Ip-2])<<8 | uint16(vm.Instruction[vm.Ip-1])
 }
