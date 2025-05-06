@@ -197,6 +197,9 @@ func (vm *VM) run() InterpretResult {
 		case OP_PRINT:
 			printValues(vm.pop())
 			fmt.Printf("\n")
+		case OP_JUMP:
+			offset := vm.READ_SHORT()
+			vm.Ip += int(offset)
 		case OP_JUMP_IF_FALSE:
 			offset := vm.READ_SHORT()
 			if isFalsey(vm.peek(0)) {

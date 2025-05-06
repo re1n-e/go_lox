@@ -4,7 +4,7 @@ import "fmt"
 
 func (chunk *Chunk) DisassembleChunk(name string) {
 	fmt.Printf("== %s ==\n", name)
-	for offset := 0; offset < chunk.Count; {
+	for offset := 0; offset < len(chunk.Code); {
 		offset = chunk.disassembleInstruction(offset)
 	}
 }
@@ -62,6 +62,10 @@ func (chunk *Chunk) disassembleInstruction(offset int) int {
 		return simpleInstruction("OP_NEGATE", offset)
 	case OP_PRINT:
 		return simpleInstruction("OP_PRINT", offset)
+	case OP_JUMP:
+		return chunk.jumpInstruction("OP_JUMP", 1, offset)
+	case OP_JUMP_IF_FALSE:
+		return chunk.jumpInstruction("OP_JUMP_IF_FALSE", 1, offset)
 	case OP_RETURN:
 		return simpleInstruction("OP_RETURN", offset)
 	default:
@@ -96,6 +100,14 @@ func (chunk *Chunk) byteInstruction(name string, offset int) int {
 	slot := chunk.Code[offset+1]
 	fmt.Printf("%-16s %4d\n", name, slot)
 	return offset + 2
+}
+
+func (chunk *Chunk) jumpInstruction(name string, sign int, offset int) int {
+	jump := uint16(chunk.Code[offset+1]) << 8
+	jump |= uint16(chunk.Code[offset+2])
+	fmt.Printf("%-16s %4d -> %d\n", name, offset,
+		offset+3+sign*int(jump))
+	return offset + 3
 }
 
 func PrintValue(value Value) {

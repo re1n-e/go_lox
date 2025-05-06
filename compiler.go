@@ -204,7 +204,7 @@ func (parser *Parser) emitJump(instruction byte) byte {
 	parser.emitByte(instruction)
 	parser.emitByte(0xff)
 	parser.emitByte(0xff)
-	return byte(compilingChunk.Count) - 2
+	return byte(len(compilingChunk.Code)) - 2
 }
 
 func (parser *Parser) emitReturn() {
@@ -225,7 +225,7 @@ func (parser *Parser) emitConstant(value Value) {
 }
 
 func (parser *Parser) patchJump(offset byte) {
-	jump := compilingChunk.Count - int(offset) - 2
+	jump := len(compilingChunk.Code) - int(offset) - 2
 
 	if jump > 255 {
 		parser.error("Too much code to jump over")
@@ -516,9 +516,18 @@ func (parser *Parser) ifStatement() {
 	parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.")
 
 	thenJump := parser.emitJump(OP_JUMP_IF_FALSE)
+	parser.emitByte(OP_POP)
 	parser.statement()
 
+	elseJump := parser.emitJump(OP_JUMP)
+
 	parser.patchJump(thenJump)
+	parser.emitByte(OP_POP)
+
+	if parser.match(TOKEN_ELSE) {
+		parser.statement()
+	}
+	parser.patchJump(elseJump)
 }
 
 func (parser *Parser) printStatement() {
