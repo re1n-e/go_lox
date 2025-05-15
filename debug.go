@@ -66,6 +66,8 @@ func (chunk *Chunk) disassembleInstruction(offset int) int {
 		return chunk.jumpInstruction("OP_JUMP", 1, offset)
 	case OP_JUMP_IF_FALSE:
 		return chunk.jumpInstruction("OP_JUMP_IF_FALSE", 1, offset)
+	case OP_LOOP:
+		return chunk.jumpInstruction("OP_LOOP", -1, offset)
 	case OP_RETURN:
 		return simpleInstruction("OP_RETURN", offset)
 	default:

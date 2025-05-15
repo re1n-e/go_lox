@@ -1,5 +1,7 @@
 package main
 
+// currentChunk = len(compilingChunk.Code)
+
 import (
 	"fmt"
 	"os"
@@ -97,7 +99,7 @@ func rules_init() {
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
-		{nil, nil, PREC_NONE}, // And
+		{nil, func(p *Parser, canAssign bool) { p.and_(canAssign) }, PREC_NONE}, // And
 		{nil, nil, PREC_NONE}, // Class
 		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // Else
 		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // False
@@ -105,7 +107,7 @@ func rules_init() {
 		{nil, nil, PREC_NONE}, // Fun
 		{nil, nil, PREC_NONE}, // If
 		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // NIL
-		{nil, nil, PREC_NONE}, // OR
+		{nil, func(p *Parser, canAssign bool) { p.or_(canAssign) }, PREC_NONE},     // OR
 		{nil, nil, PREC_NONE}, // Print
 		{nil, nil, PREC_NONE}, // Return
 		{nil, nil, PREC_NONE}, // Super
@@ -240,6 +242,18 @@ func (parser *Parser) emitBytes(byte1, byte2 byte) {
 	parser.emitByte(byte2)
 }
 
+func (parser *Parser) emitLoop(loopStart int) {
+	parser.emitByte(OP_LOOP)
+
+	offset := len(compilingChunk.Code) - loopStart + 2
+	if offset > int(^uint16(0)) {
+		parser.error("Loop body too large.")
+	}
+
+	parser.emitByte((byte(offset >> 8)) & 0xff)
+	parser.emitByte(byte(offset) & 0xff)
+}
+
 func (parser *Parser) endCompiler() {
 	parser.emitReturn()
 	if !parser.hadError {
@@ -317,6 +331,17 @@ func (parser *Parser) number(bool) {
 		panic("number() cant't convert")
 	}
 	parser.emitConstant(NumberVal(value))
+}
+
+func (parser *Parser) or_(bool) {
+	elseJump := parser.emitJump(OP_JUMP_IF_FALSE)
+	endJump := parser.emitJump(OP_JUMP)
+
+	parser.patchJump(elseJump)
+	parser.emitByte(OP_POP)
+
+	parser.parsePrecedence(PREC_OR)
+	parser.patchJump(endJump)
 }
 
 func (parser *Parser) string(bool) {
@@ -475,6 +500,14 @@ func (parser *Parser) defineVariable(global byte) {
 	parser.emitBytes(OP_DEFINE_GLOBAL, global)
 }
 
+func (parser *Parser) and_(bool) {
+	endJump := parser.emitJump(OP_JUMP_IF_FALSE)
+	parser.emitByte(OP_POP)
+	parser.parsePrecedence(PREC_AND)
+
+	parser.patchJump(endJump)
+}
+
 func getRule(Type TokenType) *ParseRule {
 	return &rules[Type]
 }
@@ -536,6 +569,21 @@ func (parser *Parser) printStatement() {
 	parser.emitByte(OP_PRINT)
 }
 
+func (parser *Parser) whileStatement() {
+	loopStart := len(compilingChunk.Code)
+	parser.consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.")
+	parser.expression()
+	parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.")
+
+	exitJump := parser.emitJump(OP_JUMP_IF_FALSE)
+	parser.emitByte(OP_POP)
+	parser.statement()
+	parser.emitLoop(loopStart)
+
+	parser.patchJump(exitJump)
+	parser.emitByte(OP_POP)
+}
+
 func (parser *Parser) synchronize() {
 	parser.panicMode = false
 
@@ -576,8 +624,12 @@ func (parser *Parser) declaration() {
 func (parser *Parser) statement() {
 	if parser.match(TOKEN_PRINT) {
 		parser.printStatement()
-	} else if parser.match(TOKEN_IF) {
+	} else if parser.match(TOKEN_FOR){
+		parser.forStatement()
+	}else if parser.match(TOKEN_IF) {
 		parser.ifStatement()
+	} else if parser.match(TOKEN_WHILE) {
+		parser.whileStatement()
 	} else if parser.match(TOKEN_LEFT_BRACE) {
 		beginScope()
 		parser.block()
