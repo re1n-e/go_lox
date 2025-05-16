@@ -257,7 +257,7 @@ func (parser *Parser) emitLoop(loopStart int) {
 func (parser *Parser) endCompiler() {
 	parser.emitReturn()
 	if !parser.hadError {
-		// compilingChunk.DisassembleChunk("code")
+		// compilingChunk.DisassembleChunk("code") // comment
 	}
 }
 
@@ -504,7 +504,6 @@ func (parser *Parser) and_(bool) {
 	endJump := parser.emitJump(OP_JUMP_IF_FALSE)
 	parser.emitByte(OP_POP)
 	parser.parsePrecedence(PREC_AND)
-
 	parser.patchJump(endJump)
 }
 
@@ -541,6 +540,49 @@ func (parser *Parser) expressionStatement() {
 	parser.expression()
 	parser.consume(TOKEN_SEMICOLON, "Expect ';' after expression.")
 	parser.emitByte(OP_POP)
+}
+
+func (parser *Parser) forStatement() {
+	beginScope()
+	parser.consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'")
+	if parser.match(TOKEN_SEMICOLON) {
+		// No initializer.
+	} else if parser.match(TOKEN_VAR) {
+		parser.varDeclaration()
+	} else {
+		parser.expressionStatement()
+	}
+
+	loopStart := len(compilingChunk.Code)
+	exitJump := -1
+	if !parser.match(TOKEN_SEMICOLON) {
+		parser.expression()
+		parser.consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.")
+
+		exitJump = int(parser.emitJump(OP_JUMP_IF_FALSE))
+		parser.emitByte(OP_POP)
+	}
+
+	if !parser.match(TOKEN_RIGHT_PAREN) {
+		bodyJump := parser.emitJump(OP_JUMP)
+		incrementStart := len(compilingChunk.Code)
+		parser.expression()
+		parser.emitByte(OP_POP)
+		parser.consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.")
+
+		parser.emitLoop(loopStart)
+		loopStart = incrementStart
+		parser.patchJump(bodyJump)
+	}
+
+	parser.statement()
+	parser.emitLoop(loopStart)
+	if exitJump != -1 {
+		parser.patchJump(byte(exitJump))
+		parser.emitByte(OP_POP)
+		parser.emitByte(OP_POP)
+	}
+	parser.endScope()
 }
 
 func (parser *Parser) ifStatement() {
@@ -624,9 +666,9 @@ func (parser *Parser) declaration() {
 func (parser *Parser) statement() {
 	if parser.match(TOKEN_PRINT) {
 		parser.printStatement()
-	} else if parser.match(TOKEN_FOR){
+	} else if parser.match(TOKEN_FOR) {
 		parser.forStatement()
-	}else if parser.match(TOKEN_IF) {
+	} else if parser.match(TOKEN_IF) {
 		parser.ifStatement()
 	} else if parser.match(TOKEN_WHILE) {
 		parser.whileStatement()

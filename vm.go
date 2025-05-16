@@ -76,7 +76,7 @@ func (vm *VM) DEBUG_TRACE_EXECUTION() {
 
 func (vm *VM) run() InterpretResult {
 	for {
-		//vm.DEBUG_TRACE_EXECUTION()
+		// vm.DEBUG_TRACE_EXECUTION() // Comment
 
 		switch vm.READ_BYTE() {
 		case OP_CONSTANT:
