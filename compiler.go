@@ -99,7 +99,7 @@ func rules_init() {
 			Infix:      nil,
 			Precedence: PREC_NONE,
 		},
-		{nil, func(p *Parser, canAssign bool) { p.and_(canAssign) }, PREC_NONE}, // And
+		{nil, func(p *Parser, canAssign bool) { p.and_(canAssign) }, PREC_AND}, // And
 		{nil, nil, PREC_NONE}, // Class
 		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // Else
 		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // False
@@ -107,7 +107,7 @@ func rules_init() {
 		{nil, nil, PREC_NONE}, // Fun
 		{nil, nil, PREC_NONE}, // If
 		{func(p *Parser, canAssign bool) { p.literal(canAssign) }, nil, PREC_NONE}, // NIL
-		{nil, func(p *Parser, canAssign bool) { p.or_(canAssign) }, PREC_NONE},     // OR
+		{nil, func(p *Parser, canAssign bool) { p.or_(canAssign) }, PREC_OR},       // OR
 		{nil, nil, PREC_NONE}, // Print
 		{nil, nil, PREC_NONE}, // Return
 		{nil, nil, PREC_NONE}, // Super
@@ -266,13 +266,12 @@ func beginScope() {
 }
 
 func (parser *Parser) endScope() {
+	current.scopeDepth--
 	for current.localCount > 0 &&
 		current.locals[current.localCount-1].depth > current.scopeDepth {
 		parser.emitByte(OP_POP)
 		current.localCount--
 	}
-
-	current.scopeDepth--
 }
 
 func (parser *Parser) binary(bool) {
@@ -474,7 +473,6 @@ func (parser *Parser) addLocal(name Token) {
 	current.localCount++
 	local.name = name
 	local.depth = -1
-	local.depth = current.scopeDepth
 }
 
 func (parser *Parser) parseVariable(errorMessage string) byte {
@@ -579,7 +577,6 @@ func (parser *Parser) forStatement() {
 	parser.emitLoop(loopStart)
 	if exitJump != -1 {
 		parser.patchJump(byte(exitJump))
-		parser.emitByte(OP_POP)
 		parser.emitByte(OP_POP)
 	}
 	parser.endScope()
